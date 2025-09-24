@@ -36,6 +36,8 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   }, []);
 
 
+
+
   // CORRECTION COMPLÈTE de la fonction extractEnhancedData :
   // 1. REMPLACER extractEnhancedData par cette version simple :
 
@@ -60,45 +62,57 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
 
 
   const fetchAbsencesData = async () => {
-  setLoadingAbsences(true);
-  
-  try {
-    const response = await fetch('https://scodoc-proxy-production.up.railway.app/api/proxy/absences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        moodleSession: 'ji9uou2o5rhtqiqse89j6af1b1',
-        dpt: 'INFO',
-        cid: '874'
-      })
-    });
-    
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    setLoadingAbsences(true);
+
+    try {
+      const moodleSession = cookieUtils.get('MoodleSession');
+
+
+      const response = await fetch('https://scodoc-proxy-production.up.railway.app/api/proxy/absences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          moodleSession: moodleSession,
+          dpt: 'INFO',
+          cid: '874'
+        })
+      });
+
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const updatedUser = {
+          ...user,
+          rawData: {
+            ...user.rawData,
+            absencesData: result.data
+          }
+        };
+
+        onRefresh(updatedUser);
+      }
+
+    } catch (error) {
+      console.log('ERREUR COMPLETE:', error);
+    } finally {
+      console.log('Loading terminé');
+      setLoadingAbsences(false);
     }
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      const updatedUser = {
-        ...user,
-        rawData: {
-          ...user.rawData,
-          absencesData: result.data
-        }
-      };
-      
-      onRefresh(updatedUser);
+  };
+
+  // 🚀 AUTO-FETCH DES ABSENCES AU LANCEMENT
+  useEffect(() => {
+    // Vérifier si on a un utilisateur et qu' n'a pas déjà les données d'absences
+    if (user && !user.rawData?.absencesData) {
+      console.log('🔄 Auto-fetch des données d\'absences au lancement...');
+      fetchAbsencesData();
     }
-    
-  } catch (error) {
-    console.log('ERREUR COMPLETE:', error);
-  } finally {
-    console.log('Loading terminé');
-    setLoadingAbsences(false);
-  }
-};
+  }, [user]); // Se déclenche quand 'user' change (au montage principalement)
 
   // Données par défaut
   const defaultData = {
