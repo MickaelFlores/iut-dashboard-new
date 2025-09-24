@@ -265,7 +265,14 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-blue-600" />
+                  <ChevronRight className="w-4 h-4 text-blue-600" />
                 </div>
+                {loadingAbsences && (
+                  <div className="mt-3 flex items-center text-xs text-blue-600">
+                    <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                    Chargement des données...
+                  </div>
+                )}
                 {loadingAbsences && (
                   <div className="mt-3 flex items-center text-xs text-blue-600">
                     <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
