@@ -29,7 +29,7 @@ function App() {
     const checkAuthStatus = async () => {
         try {
             setError('');
-            
+
             // D'abord vérifier s'il y a une session serveur active (si vous utilisez authAPI)
             try {
                 const response = await authAPI.getStatus();
@@ -69,15 +69,22 @@ function App() {
     };
 
     // Fonction pour rafraîchir les données
-    const handleRefresh = async () => {
+    const handleRefresh = async (userWithAbsences = null) => {
         try {
             setError('');
             console.log('🔄 Actualisation des données utilisateur...');
-            
+
+            // Si on reçoit un user avec des données d'absences, l'utiliser directement
+            if (userWithAbsences) {
+                console.log('📊 Mise à jour avec données d\'absences');
+                setUser(userWithAbsences);
+                return;
+            }
+
             if (user?.authMethod?.includes('Login') && user?.phpsessid) {
                 // Relancer la requête proxy avec les tokens existants
                 const proxyUrl = user?.proxyUrl || 'https://scodoc-proxy-production.up.railway.app';
-                
+
                 const response = await fetch(`${proxyUrl}/api/proxy/scodoc`, {
                     method: 'POST',
                     headers: {
@@ -99,9 +106,14 @@ function App() {
                         loginTime: new Date().toISOString(),
                         phpsessid: user.phpsessid,
                         csrftoken: user.csrftoken,
-                        proxyUrl: user.proxyUrl
+                        proxyUrl: user.proxyUrl,
+                        // ✅ PRÉSERVER les données d'absences existantes
+                        rawData: {
+                            ...updatedUserData.rawData,
+                            absencesData: user.rawData?.absencesData // Conserver absencesData
+                        }
                     });
-                    console.log('✅ Données actualisées avec succès');
+                    console.log('✅ Données actualisées avec préservation des absences');
                 } else {
                     throw new Error(result.error || 'Erreur lors de l\'actualisation');
                 }
@@ -112,7 +124,7 @@ function App() {
         } catch (error) {
             console.error('❌ Erreur actualisation:', error);
             setError(`Erreur lors de l'actualisation: ${error.message}`);
-            
+
             // Si les tokens ont expiré, forcer la déconnexion
             if (error.message.includes('session') || error.message.includes('token')) {
                 handleLogout();
@@ -173,19 +185,19 @@ function App() {
 
     const handleLogout = () => {
         console.log('👋 Déconnexion');
-        
+
         // Nettoyer les cookies des tokens
         cookieUtils.clearTokens();
-        
+
         // Si vous utilisez casAuthService, décommentez la ligne suivante
         // casAuthService.cleanup();
-        
+
         setAuthenticated(false);
         setUser(null);
         setError('');
-        
+
         console.log('🧹 Session nettoyée');
-        
+
         // Optionnel: redirection vers la page de déconnexion CAS
         // window.open('https://authc.univ-toulouse.fr/logout', '_blank');
     };
@@ -213,15 +225,15 @@ function App() {
     return (
         <div className="App">
             {authenticated ? (
-                <Dashboard 
-                    user={user} 
-                    onLogout={handleLogout} 
+                <Dashboard
+                    user={user}
+                    onLogout={handleLogout}
                     onRefresh={handleRefresh}
                 />
             ) : (
                 <Login onLoginSuccess={handleLoginSuccess} />
             )}
-            
+
             {/* Affichage d'erreur global */}
             {error && authenticated && (
                 <div className="fixed bottom-4 right-4 max-w-sm">
@@ -231,7 +243,7 @@ function App() {
                             <div>
                                 <h3 className="text-sm font-medium text-red-800">Erreur</h3>
                                 <p className="text-sm text-red-700 mt-1">{error}</p>
-                                <button 
+                                <button
                                     onClick={() => setError('')}
                                     className="text-xs text-red-600 hover:text-red-800 underline mt-2"
                                 >

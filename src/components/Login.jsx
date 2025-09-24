@@ -1,6 +1,6 @@
 // components/Login.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader, AlertTriangle, Shield, Server, RefreshCw, Info, X} from 'lucide-react';
+import { Loader, AlertTriangle, Shield, Server, RefreshCw, Info, X } from 'lucide-react';
 import { cookieUtils } from '../utils/cookies';
 
 const Login = ({ onLoginSuccess }) => {
@@ -15,13 +15,15 @@ const Login = ({ onLoginSuccess }) => {
 
     const [tokens, setTokens] = useState({
         phpsessid: '',
-        csrftoken: ''
+        csrftoken: '',
+        moodleSession: ''
     });
 
     // Chargement initial des tokens depuis les cookies
     useEffect(() => {
+        const moodleSession = cookieUtils.get('MoodleSession') || '';
         const savedTokens = cookieUtils.getTokens();
-        setTokens(savedTokens);
+        setTokens(savedTokens, moodleSession);
     }, []);
 
     const attemptAutoLogin = async () => {
@@ -88,6 +90,8 @@ const Login = ({ onLoginSuccess }) => {
                 loginTime: new Date().toISOString(),
                 phpsessid: tokens.phpsessid.trim(),
                 csrftoken: tokens.csrftoken.trim(),
+                moodleSession: tokens.moodleSession, // Ajoutez cette ligne
+
                 proxyUrl
             });
 
@@ -313,6 +317,8 @@ const Login = ({ onLoginSuccess }) => {
                 cookieUtils.set('scodoc_phpsessid', value.trim(), 1);
             } else if (field === 'csrftoken') {
                 cookieUtils.set('scodoc_csrftoken', value.trim(), 30);
+            } else if (field === 'MoodleSession') {
+                cookieUtils.set('MoodleSession', value.trim(), 30);
             }
         }
 
@@ -376,7 +382,7 @@ const Login = ({ onLoginSuccess }) => {
                     title="Informations de sécurité"
                 >
                     <span className="text-xs text-gray-600 font-medium">WARNING Sécurité</span>
-                    <Info className="w-4 h-4 text-red-600"/>
+                    <Info className="w-4 h-4 text-red-600" />
                 </button>
 
                 {/* Modal d'information sécurité */}
@@ -395,16 +401,16 @@ const Login = ({ onLoginSuccess }) => {
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-                            
+
                             <div className="text-sm text-gray-700 space-y-3">
                                 <p className="text-orange-600 font-medium">
                                     ⚠️ Informations importantes concernant la confidentialité
                                 </p>
-                                
+
                                 <p>
                                     Cette application traite des identifiants de session pour accéder aux données ScoDoc en <strong>lecture seule</strong>.
                                 </p>
-                                
+
                                 <div className="bg-green-50 p-3 rounded-lg">
                                     <p className="text-green-700 font-medium mb-1">Points positifs :</p>
                                     <ul className="text-green-600 text-xs space-y-1">
@@ -413,7 +419,7 @@ const Login = ({ onLoginSuccess }) => {
                                         <li>• Consultation de vos propres données</li>
                                     </ul>
                                 </div>
-                                
+
                                 <div className="bg-orange-50 p-3 rounded-lg">
                                     <p className="text-orange-700 font-medium mb-1">Recommandations :</p>
                                     <ul className="text-orange-600 text-xs space-y-1">
@@ -423,7 +429,7 @@ const Login = ({ onLoginSuccess }) => {
                                     </ul>
                                 </div>
                             </div>
-                            
+
                             <button
                                 onClick={() => setShowSecurityInfo(false)}
                                 className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"

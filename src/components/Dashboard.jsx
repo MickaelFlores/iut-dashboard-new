@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { cookieUtils } from '../utils/cookies';
 import {
-  User,
   GraduationCap,
   TrendingUp,
-  Users,
   BookOpen,
   Calendar,
   Award,
@@ -16,10 +14,6 @@ import {
   LogOut,
   RefreshCw,
   AlertCircle,
-  CheckCircle,
-  Info,
-  ChevronLeft,
-  MapPin,
   UserCheck,
   X
 } from 'lucide-react';
@@ -28,35 +22,10 @@ import {
 const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
-  const [currentWeek, setCurrentWeek] = useState(0);
   const [showAbsencesDetail, setShowAbsencesDetail] = useState(false);
   const [loadingAbsences, setLoadingAbsences] = useState(false);
 
-  // Mock data pour l'emploi du temps
-  const mockSchedule = {
-    timeSlots: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'],
-    days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'],
-    courses: {
-      'Lundi': [
-        { time: '08:00-10:00', subject: 'Mathématiques', teacher: 'M. Dupont', room: 'A101', type: 'CM' },
-        { time: '14:00-16:00', subject: 'Programmation', teacher: 'Mme Martin', room: 'B205', type: 'TP' }
-      ],
-      'Mardi': [
-        { time: '09:00-11:00', subject: 'Physique', teacher: 'M. Durand', room: 'C302', type: 'TD' },
-        { time: '14:00-17:00', subject: 'Projet', teacher: 'M. Lefebvre', room: 'Lab1', type: 'Projet' }
-      ],
-      'Mercredi': [
-        { time: '08:00-12:00', subject: 'Stage entreprise', teacher: '', room: 'Externe', type: 'Stage' }
-      ],
-      'Jeudi': [
-        { time: '10:00-12:00', subject: 'Anglais', teacher: 'Mrs. Smith', room: 'A203', type: 'TD' },
-        { time: '14:00-16:00', subject: 'Bases de données', teacher: 'M. Garcia', room: 'B104', type: 'CM' }
-      ],
-      'Vendredi': [
-        { time: '09:00-12:00', subject: 'Projet tutoré', teacher: 'Équipe pédago', room: 'B301', type: 'Projet' }
-      ]
-    }
-  };
+
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -66,76 +35,52 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Extraction des données
+
+  // CORRECTION COMPLÈTE de la fonction extractEnhancedData :
+  // 1. REMPLACER extractEnhancedData par cette version simple :
+
   const extractEnhancedData = (rawData) => {
+
     if (!rawData) return null;
-    const auth = rawData.auth || {};
-    const releve = rawData.relevé || {};
-    const absencesData = rawData.absencesData || null;
 
-    let totalAbsences = 0;
-    let derniereAbsence = null;
-    let totalInjustifiees = 0;
-    let totalJustifiees = 0;
-    let totalRetards = 0;
-
-    if (absencesData) {
-      totalAbsences = absencesData.totaux?.totalAbsences || 0;
-      totalInjustifiees = absencesData.totaux?.totalInjustifiees || 0;
-      totalJustifiees = absencesData.totaux?.totalJustifiees || 0;
-      totalRetards = absencesData.totaux?.totalRetards || 0;
-
-      // Trouver la dernière absence
-      if (absencesData.detailAbsences && absencesData.detailAbsences.length > 0) {
-        const sortedAbsences = absencesData.detailAbsences.sort((a, b) =>
-          new Date(b.date) - new Date(a.date)
-        );
-        derniereAbsence = sortedAbsences[0].date;
-      }
-    }
+    const absencesData = rawData.absencesData;
+    const totaux = absencesData?.totaux || {};
 
     return {
-      sessionId: auth.session || 'Inconnue',
-      totalAbsences,
-      totalInjustifiees,
-      totalJustifiees,
-      totalRetards,
-      derniereAbsence,
+      sessionId: rawData.auth?.session || 'Inconnue',
+      totalAbsences: totaux.totalAbsences || 0,
+      totalInjustifiees: totaux.totalInjustifiees || 0,
+      totalJustifiees: totaux.totalJustifiees || 0,
+      totalRetards: totaux.totalRetards || 0,
+      derniereAbsence: null, // Simplifié pour l'instant
       absencesData,
-      etatInscription: releve.etat_inscription === 'I' ? '✅ Inscrit' : '❓ Statut inconnu'
+      etatInscription: 'Inscrit'
     };
   };
 
-  // Données des absences
+
   const fetchAbsencesData = async () => {
-    if (!user.proxyUrl) return;
-
-    setLoadingAbsences(true);
-    try {
-      // Il faut un MoodleSession - vous devrez l'ajouter aux données utilisateur
-      // ou le récupérer d'une autre manière
-      const moodleSession = user.moodleSession || ''; // À adapter selon votre système
-
-      const response = await fetch(`${user.proxyUrl}/api/proxy/absences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          moodleSession: moodleSession
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des absences');
-      }
-
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || 'Erreur serveur');
-      }
-
-      // Mettre à jour les données utilisateur avec les absences
+  setLoadingAbsences(true);
+  
+  try {
+    const response = await fetch('https://scodoc-proxy-production.up.railway.app/api/proxy/absences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        moodleSession: 'ji9uou2o5rhtqiqse89j6af1b1',
+        dpt: 'INFO',
+        cid: '874'
+      })
+    });
+    
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
       const updatedUser = {
         ...user,
         rawData: {
@@ -143,17 +88,17 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
           absencesData: result.data
         }
       };
-
-      // Vous devrez passer cette fonction depuis le composant parent
-      // ou gérer l'état différemment
+      
       onRefresh(updatedUser);
-
-    } catch (error) {
-      console.error('Erreur récupération absences:', error);
-    } finally {
-      setLoadingAbsences(false);
     }
-  };
+    
+  } catch (error) {
+    console.log('ERREUR COMPLETE:', error);
+  } finally {
+    console.log('Loading terminé');
+    setLoadingAbsences(false);
+  }
+};
 
   // Données par défaut
   const defaultData = {
@@ -180,43 +125,6 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
-  // Obtenir le prochain cours
-  const getNextCourse = () => {
-    const now = new Date();
-    const currentDay = now.toLocaleDateString('fr-FR', { weekday: 'long' });
-    const currentTime = now.getHours() * 100 + now.getMinutes();
-
-    const todayCourses = mockSchedule.courses[currentDay] || [];
-
-    for (const course of todayCourses) {
-      const [startTime] = course.time.split('-');
-      const [hours, minutes] = startTime.split(':').map(Number);
-      const courseTime = hours * 100 + minutes;
-
-      if (courseTime > currentTime) {
-        return { ...course, day: currentDay, isToday: true };
-      }
-    }
-
-    // Si aucun cours aujourd'hui, chercher le prochain jour
-    const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
-    const currentDayIndex = dayOrder.indexOf(currentDay);
-
-    for (let i = 1; i < dayOrder.length; i++) {
-      const nextDayIndex = (currentDayIndex + i) % dayOrder.length;
-      const nextDay = dayOrder[nextDayIndex];
-      const nextDayCourses = mockSchedule.courses[nextDay] || [];
-
-      if (nextDayCourses.length > 0) {
-        return { ...nextDayCourses[0], day: nextDay, isToday: false };
-      }
-    }
-
-    return null;
-  };
-
-  const nextCourse = getNextCourse();
-
   const handleRefresh = async () => {
     setLoading(true);
     try {
@@ -224,17 +132,6 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getTypeColor = (type) => {
-    const colors = {
-      'CM': 'bg-blue-100 text-blue-800 border-blue-200',
-      'TD': 'bg-green-100 text-green-800 border-green-200',
-      'TP': 'bg-purple-100 text-purple-800 border-purple-200',
-      'Projet': 'bg-orange-100 text-orange-800 border-orange-200',
-      'Stage': 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-    return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   return (
@@ -328,7 +225,12 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg cursor-pointer hover:shadow-md transition-all"
                 onClick={() => {
                   if (!enhancedData.absencesData) {
+                    console.log('🔄 Pas de données absences, lancement fetch...');
                     fetchAbsencesData();
+                  } else {
+                    console.log('📊 Données absences disponibles:', enhancedData.absencesData);
+
+
                   }
                   setShowAbsencesDetail(true);
                 }}>
@@ -351,9 +253,14 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                           )}
                         </div>
                       ) : (
-                        <p className="text-sm text-blue-700">
-                          Cliquez pour charger vos données d'absences
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-sm text-blue-700">
+                            Cliquez pour charger vos données d'absences
+                          </p>
+                          <p className="text-xs text-blue-600">
+                            Données non chargées
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -419,28 +326,6 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
                 {enhancedData?.absencesData ? (
                   <div className="space-y-6">
-                    {/* Statistiques par semestre */}
-                    {enhancedData.absencesData.statistiquesParSemestre?.length > 0 && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-4">Statistiques par semestre</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {enhancedData.absencesData.statistiquesParSemestre.map((sem, index) => (
-                            <div key={index} className="bg-gray-50 rounded-lg p-4">
-                              <h5 className="font-medium text-gray-900 mb-3">{sem.semestre}</h5>
-                              <div className="space-y-2">
-                                {Object.entries(sem.statistiques).map(([key, value]) => (
-                                  <div key={key} className="flex justify-between text-sm">
-                                    <span className="text-gray-600">{key}:</span>
-                                    <span className="font-medium">{value}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Totaux */}
                     <div className="bg-blue-50 rounded-lg p-4">
                       <h4 className="text-lg font-semibold mb-4 text-blue-900">Totaux</h4>
@@ -465,7 +350,7 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                     </div>
 
                     {/* Détail des absences */}
-                    {enhancedData.absencesData.detailAbsences?.length > 0 && (
+                    {enhancedData.absencesData?.detailAbsences?.length > 0 && (
                       <div>
                         <h4 className="text-lg font-semibold mb-4">Détail des absences</h4>
                         <div className="bg-white border rounded-lg overflow-hidden">
@@ -489,9 +374,9 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                                     <td className="p-3">{absence.type}</td>
                                     <td className="p-3">
                                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${absence.statut === 'injustifiée' ? 'bg-red-100 text-red-800' :
-                                          absence.statut === 'justifiée' ? 'bg-green-100 text-green-800' :
-                                            absence.statut === 'retard' ? 'bg-orange-100 text-orange-800' :
-                                              'bg-gray-100 text-gray-800'
+                                        absence.statut === 'justifiée' ? 'bg-green-100 text-green-800' :
+                                          absence.statut === 'retard' ? 'bg-orange-100 text-orange-800' :
+                                            'bg-gray-100 text-gray-800'
                                         }`}>
                                         {absence.statut}
                                       </span>
@@ -596,18 +481,6 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   En ligne
                 </span>
-                <button
-                  onClick={() => {
-                    const iframe = document.querySelector('iframe[title="Emploi du temps"]');
-                    if (iframe) {
-                      iframe.src = iframe.src;
-                    }
-                  }}
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Actualiser
-                </button>
               </div>
             </div>
           </div>
