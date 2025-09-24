@@ -146,7 +146,7 @@ Les contributions sont les bienvenues ! Pour contribuer :
 
 ## 📝 Licence
 
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+Ce projet est sous licence MIT. Voir le fichier [LICENSE]([LICENSE](https://github.com/MickaelFlores/iut-dashboard-new/blob/master/LICENCE)) pour plus de détails.
 
 ## 👨‍💻 Auteur
 
