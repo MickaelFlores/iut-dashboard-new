@@ -11,7 +11,7 @@ const Login = ({ onLoginSuccess }) => {
     const [proxyUrl] = useState('https://scodoc-proxy-production.up.railway.app');
     const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
-    
+
     const [tokens, setTokens] = useState({
         phpsessid: '',
         csrftoken: ''
@@ -33,8 +33,43 @@ const Login = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            console.log('🔄 Connexion automatique en cours...');
-            
+            console.log('🔄 Vérification du statut de session...');
+
+            // Vérifier d'abord si la session est encore active
+            const sessionCheckResponse = await fetch(`${proxyUrl}/api/session/check`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    phpsessid: tokens.phpsessid.trim()
+                })
+            });
+
+            if (!sessionCheckResponse.ok) {
+                throw new Error('Erreur lors de la vérification de session');
+            }
+
+            const sessionStatus = await sessionCheckResponse.json();
+
+            if (!sessionStatus.success) {
+                throw new Error(sessionStatus.error || 'Erreur de vérification de session');
+            }
+
+            // Si la session est expirée, nettoyer immédiatement
+            if (!sessionStatus.sessionActive) {
+                console.log('⏰ Session expirée détectée, nettoyage des cookies');
+                cookieUtils.clearTokens();
+                setTokens({ phpsessid: '', csrftoken: '' });
+                setError('Votre session a expiré. Veuillez vous reconnecter.');
+                setAutoLoginAttempted(true);
+                setAutoConnecting(false);
+                return;
+            }
+
+            console.log('✅ Session active, tentative de connexion automatique...');
+
+            // Session active, procéder avec la connexion automatique
             const studentData = await fetchStudentData(
                 tokens.phpsessid.trim(),
                 tokens.csrftoken.trim()
@@ -44,7 +79,7 @@ const Login = ({ onLoginSuccess }) => {
             cookieUtils.saveTokens(tokens.phpsessid.trim(), tokens.csrftoken.trim());
 
             console.log('✅ Connexion automatique réussie');
-            
+
             onLoginSuccess({
                 ...studentData,
                 authenticated: true,
@@ -58,9 +93,13 @@ const Login = ({ onLoginSuccess }) => {
         } catch (error) {
             console.warn('⚠️ Connexion automatique échouée:', error.message);
             setError('Connexion automatique échouée. Veuillez vérifier vos identifiants.');
-            
-            // Si l'auto-login échoue, nettoyer les cookies invalides
-            if (error.message.includes('session') || error.message.includes('token')) {
+
+            // Si l'erreur indique un problème de session/token, nettoyer les cookies
+            if (error.message.includes('session') ||
+                error.message.includes('token') ||
+                error.message.includes('expiré') ||
+                error.message.includes('redirect') ||
+                error.message.includes('doAuth')) {
                 console.log('🧹 Nettoyage des cookies invalides');
                 cookieUtils.clearTokens();
                 setTokens({ phpsessid: '', csrftoken: '' });
@@ -74,7 +113,7 @@ const Login = ({ onLoginSuccess }) => {
     // Vérification du statut du proxy avec retry automatique
     const checkProxyStatus = useCallback(async (currentRetryCount = 0) => {
         const maxRetries = 3;
-        
+
         try {
             const testUrl = `${proxyUrl}/api/test`;
             const response = await fetch(testUrl, {
@@ -82,7 +121,7 @@ const Login = ({ onLoginSuccess }) => {
                 headers: { 'Accept': 'application/json' },
                 signal: AbortSignal.timeout(15000) // 15s pour le cold start
             });
-            
+
             if (response.ok) {
                 setProxyStatus('online');
                 setError(''); // Effacer les erreurs précédentes
@@ -93,15 +132,15 @@ const Login = ({ onLoginSuccess }) => {
             }
         } catch (error) {
             console.warn(`⚠️ Tentative ${currentRetryCount + 1}/${maxRetries + 1} échouée:`, error.message);
-            
+
             if (currentRetryCount < maxRetries) {
                 const delay = (currentRetryCount + 1) * 2000; // 2s, 4s, 6s
                 console.log(`🔄 Nouvelle tentative dans ${delay / 1000}s...`);
-                
+
                 setProxyStatus('retrying');
                 setRetryCount(currentRetryCount + 1);
                 setError(`Connexion au proxy... (tentative ${currentRetryCount + 1}/${maxRetries + 1})`);
-                
+
                 setTimeout(() => {
                     checkProxyStatus(currentRetryCount + 1);
                 }, delay);
@@ -133,12 +172,12 @@ const Login = ({ onLoginSuccess }) => {
 
     // Tentative de connexion automatique
     useEffect(() => {
-        if (proxyStatus === 'online' && 
-            tokens.phpsessid && 
-            !autoLoginAttempted && 
-            !loading && 
+        if (proxyStatus === 'online' &&
+            tokens.phpsessid &&
+            !autoLoginAttempted &&
+            !loading &&
             !autoConnecting) {
-            
+
             console.log('🔄 Tentative de connexion automatique...');
             attemptAutoLogin();
         }
@@ -184,7 +223,7 @@ const Login = ({ onLoginSuccess }) => {
     const fetchStudentData = async (phpsessidValue, csrftokenValue) => {
         try {
             console.log('🔄 Requête via proxy...');
-            
+
             const response = await fetch(`${proxyUrl}/api/proxy/scodoc`, {
                 method: 'POST',
                 headers: {
@@ -214,7 +253,7 @@ const Login = ({ onLoginSuccess }) => {
         }
     };
 
-    
+
 
     const handleManualLogin = async () => {
         if (!tokens.phpsessid.trim()) {
@@ -253,7 +292,7 @@ const Login = ({ onLoginSuccess }) => {
 
         } catch (error) {
             console.error('❌ Erreur connexion manuelle:', error);
-            
+
             if (error.message.includes('session') || error.message.includes('token')) {
                 setError('Session expirée. Veuillez récupérer un nouveau PHPSESSID.');
             } else {
@@ -266,7 +305,7 @@ const Login = ({ onLoginSuccess }) => {
 
     const handleTokenChange = (field, value) => {
         setTokens(prev => ({ ...prev, [field]: value }));
-        
+
         // Sauvegarder immédiatement dans les cookies
         if (value.trim()) {
             if (field === 'phpsessid') {
@@ -275,7 +314,7 @@ const Login = ({ onLoginSuccess }) => {
                 cookieUtils.set('scodoc_csrftoken', value.trim(), 30);
             }
         }
-        
+
         // Reset auto login si les tokens changent
         setAutoLoginAttempted(false);
     };
@@ -319,7 +358,7 @@ const Login = ({ onLoginSuccess }) => {
                     <h2 className="text-xl font-bold text-gray-900 mb-2">Connexion automatique</h2>
                     <p className="text-gray-600 mb-4">Utilisation des identifiants sauvegardés...</p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
                     </div>
                 </div>
             </div>
@@ -415,7 +454,7 @@ const Login = ({ onLoginSuccess }) => {
                 <div className="space-y-4 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            PHPSESSID * 
+                            PHPSESSID *
                             {tokens.phpsessid && (
                                 <span className="text-xs text-green-600 ml-2">(Sauvegardé)</span>
                             )}
@@ -454,7 +493,7 @@ const Login = ({ onLoginSuccess }) => {
 
                 {/* Instructions récupération tokens */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <a href="https://iam-mickael.me/dashboard/cas-connect.php" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline"><strong>Récupérer ses identifiants cas-connexion</strong></a>
+                    <a href="https://scodocetudiant.iut-blagnac.fr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline"><strong>Récupérer ses identifiants cas-connexion</strong></a>
                     <ul className="text-xs text-gray-600 space-y-1">
                         <li>• Connectez vous avec vos identifiants SCODOC</li>
                     </ul>

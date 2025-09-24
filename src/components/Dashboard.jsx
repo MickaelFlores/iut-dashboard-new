@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  GraduationCap, 
-  TrendingUp, 
-  Users, 
-  BookOpen, 
+import React, { useState, useEffect } from 'react'
+import { cookieUtils } from '../utils/cookies';
+
+import {
+  User,
+  GraduationCap,
+  TrendingUp,
+  Users,
+  BookOpen,
   Calendar,
   Award,
   Clock,
@@ -92,13 +94,13 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   const defaultData = {
     nom: 'Nom',
     prenom: 'Prénom',
-    groupe_td: '1',
-    groupe_tp: '1A',
-    moyenne_generale: '14.2',
-    classement: '5',
-    total_etudiants: '28',
-    semestre: 'S3',
-    annee: '2024-2025'
+    groupe_td: '0',
+    groupe_tp: '0',
+    moyenne_generale: '0',
+    classement: '0',
+    total_etudiants: '0',
+    semestre: '0',
+    annee: '0'
   };
 
   const data = { ...defaultData, ...user };
@@ -118,33 +120,33 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
     const now = new Date();
     const currentDay = now.toLocaleDateString('fr-FR', { weekday: 'long' });
     const currentTime = now.getHours() * 100 + now.getMinutes();
-    
+
     const todayCourses = mockSchedule.courses[currentDay] || [];
-    
+
     for (const course of todayCourses) {
       const [startTime] = course.time.split('-');
       const [hours, minutes] = startTime.split(':').map(Number);
       const courseTime = hours * 100 + minutes;
-      
+
       if (courseTime > currentTime) {
         return { ...course, day: currentDay, isToday: true };
       }
     }
-    
+
     // Si aucun cours aujourd'hui, chercher le prochain jour
     const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
     const currentDayIndex = dayOrder.indexOf(currentDay);
-    
+
     for (let i = 1; i < dayOrder.length; i++) {
       const nextDayIndex = (currentDayIndex + i) % dayOrder.length;
       const nextDay = dayOrder[nextDayIndex];
       const nextDayCourses = mockSchedule.courses[nextDay] || [];
-      
+
       if (nextDayCourses.length > 0) {
         return { ...nextDayCourses[0], day: nextDay, isToday: false };
       }
     }
-    
+
     return null;
   };
 
@@ -208,10 +210,13 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary">
                 <Settings className="w-5 h-5" />
               </button>
-              <button 
-                onClick={onLogout}
-                className="p-2 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
-              >
+              <button
+                onClick={() => {
+                  console.log('🔓 Déconnexion et nettoyage cookies...');
+                  cookieUtils.clearTokens();
+                  onLogout();
+                }}
+                className="p-2 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -231,18 +236,18 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                     Salut {data.prenom} ! 👋 {data.groupe_td}{data.groupe_tp}
                   </h2>
                   <p className="text-muted-foreground mb-1">
-                    {currentTime.toLocaleDateString('fr-FR', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
+                    {currentTime.toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
                     })}
                   </p>
                   <div className="flex items-center text-muted-foreground">
                     <Clock className="w-4 h-4 mr-2" />
-                    {currentTime.toLocaleTimeString('fr-FR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                    {currentTime.toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit'
                     })}
                   </div>
                 </div>
@@ -300,9 +305,9 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">Planning des cours</h2>
               <div className="flex items-center gap-2">
-                <a 
-                  href="https://iam-mickael.me/flop" 
-                  target="_blank" 
+                <a
+                  href="https://iam-mickael.me/flop"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
                 >
@@ -313,18 +318,18 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
             </div>
           </div>
 
-          
+
           {/* iframe pour intégrer le planning */}
           <div className="relative" style={{ height: '1000px' }}>
             <iframe
               src="https://iam-mickael.me/flop-no-head"
               className="w-full h-full border-0"
               onLoad={() => {
-              window.scrollTo({ 
-                top: document.body.scrollHeight - 200, 
-                behavior: "smooth" 
-              });
-            }}
+                window.scrollTo({
+                  top: document.body.scrollHeight - 200,
+                  behavior: "smooth"
+                });
+              }}
               title="Emploi du temps"
               loading="lazy"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
@@ -332,23 +337,23 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                 minHeight: '1000px',
                 background: 'white'
               }
-            }
+              }
             />
-            
+
             {/* Overlay de chargement */}
-            <div className="absolute inset-0 flex items-center justify-center bg-muted/20 backdrop-blur-sm" 
-                 style={{ 
-                   opacity: loading ? 1 : 0,
-                   pointerEvents: loading ? 'auto' : 'none',
-                   transition: 'opacity 0.3s ease'
-                 }}>
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/20 backdrop-blur-sm"
+              style={{
+                opacity: loading ? 1 : 0,
+                pointerEvents: loading ? 'auto' : 'none',
+                transition: 'opacity 0.3s ease'
+              }}>
               <div className="flex items-center gap-3 bg-background px-4 py-2 rounded-lg border shadow-sm">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 <span className="text-sm">Chargement de l'emploi du temps...</span>
               </div>
             </div>
           </div>
-          
+
           {/* Footer avec informations */}
           <div className="bg-muted/30 p-4 border-t">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -358,7 +363,7 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   En ligne
                 </span>
-                <button 
+                <button
                   onClick={() => {
                     const iframe = document.querySelector('iframe[title="Emploi du temps"]');
                     if (iframe) {
@@ -378,28 +383,28 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
         {/* Actions rapides en bas */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="flex items-center justify-between p-4 bg-white rounded-xl border hover:bg-secondary transition-colors"
-          onClick={() => {
-            window.location.href = "https://scodocetudiant.iut-blagnac.fr"; 
-          }}>
+            onClick={() => {
+              window.location.href = "https://scodocetudiant.iut-blagnac.fr";
+            }}>
             <div className="flex items-center">
               <BookOpen className="w-5 h-5 text-blue-600 mr-3" />
               <span className="font-medium text-foreground">Voir toutes les notes</span>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
-          
+
           <button className="flex items-center justify-between p-4 bg-white rounded-xl border hover:bg-secondary transition-colors"
-          onClick={() => {
-            window.location.href = "https://iam-mickael.me/flop"; 
-          }}>
+            onClick={() => {
+              window.location.href = "https://iam-mickael.me/flop";
+            }}>
             <div className="flex items-center">
-              
+
               <Calendar className="w-5 h-5 text-green-600 mr-3" />
               <span className="font-medium text-foreground">Planning complet</span>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
-          
+
           <button className="flex items-center justify-between p-4 bg-white rounded-xl border hover:bg-secondary transition-colors">
             <div className="flex items-center">
               <Target className="w-5 h-5 text-purple-600 mr-3" />
