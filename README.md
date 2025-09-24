@@ -6,6 +6,23 @@
 [![Node.js](https://img.shields.io/badge/Node.js-16.0+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
+## ⚠️ Avertissement de sécurité
+
+> **🔐 ATTENTION - Informations importantes concernant la confidentialité**
+> 
+> Cette application peut traiter des identifiants de session (cookies PHPSESSID) pour accéder aux données ScoDoc. Bien que ces identifiants soient utilisés uniquement pour **consulter vos notes et informations académiques** en lecture seule (aucune action de modification n'est possible), il existe un risque théorique d'interception par des tiers malveillants.
+> 
+> **Points importants à retenir :**
+> - ✅ **Accès en lecture seule** : Les tokens ne permettent que la visualisation de vos notes
+> - ✅ **Aucune action destructive** : Impossible de modifier, supprimer ou altérer vos données
+> - ⚠️ **Risque d'interception** : Comme tout identifiant web, il peut être intercepté
+> 
+> **Recommandations :**
+> - Utilisez cette application uniquement sur des réseaux de confiance
+> - Évitez l'utilisation sur des ordinateurs publics
+> 
+> En utilisant cette application, vous acceptez ces risques et reconnaissez que l'accès reste limité à la consultation de vos propres données académiques.
+
 ## 📖 À propos du projet
 
 IUT Dashboard est une application web moderne conçue pour centraliser et faciliter l'accès aux informations importantes de l'IUT. Cette interface utilisateur intuitive permet aux étudiants et au personnel de consulter rapidement les données essentielles dans un environnement convivial et responsive.
