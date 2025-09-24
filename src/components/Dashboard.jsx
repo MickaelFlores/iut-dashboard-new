@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { cookieUtils } from '../utils/cookies';
-
 import {
   User,
   GraduationCap,
@@ -21,7 +20,8 @@ import {
   Info,
   ChevronLeft,
   MapPin,
-  UserCheck
+  UserCheck,
+  X
 } from 'lucide-react';
 
 
@@ -29,6 +29,8 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(0);
+  const [showAbsencesDetail, setShowAbsencesDetail] = useState(false);
+  const [loadingAbsences, setLoadingAbsences] = useState(false);
 
   // Mock data pour l'emploi du temps
   const mockSchedule = {
@@ -69,25 +71,88 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
     if (!rawData) return null;
     const auth = rawData.auth || {};
     const releve = rawData.relevé || {};
-    const absences = rawData.absences || {};
+    const absencesData = rawData.absencesData || null;
 
     let totalAbsences = 0;
     let derniereAbsence = null;
-    Object.entries(absences).forEach(([date, abs]) => {
-      if (Array.isArray(abs)) {
-        totalAbsences += abs.length;
-        if (!derniereAbsence || new Date(date) > new Date(derniereAbsence)) {
-          derniereAbsence = date;
-        }
+    let totalInjustifiees = 0;
+    let totalJustifiees = 0;
+    let totalRetards = 0;
+
+    if (absencesData) {
+      totalAbsences = absencesData.totaux?.totalAbsences || 0;
+      totalInjustifiees = absencesData.totaux?.totalInjustifiees || 0;
+      totalJustifiees = absencesData.totaux?.totalJustifiees || 0;
+      totalRetards = absencesData.totaux?.totalRetards || 0;
+
+      // Trouver la dernière absence
+      if (absencesData.detailAbsences && absencesData.detailAbsences.length > 0) {
+        const sortedAbsences = absencesData.detailAbsences.sort((a, b) =>
+          new Date(b.date) - new Date(a.date)
+        );
+        derniereAbsence = sortedAbsences[0].date;
       }
-    });
+    }
 
     return {
       sessionId: auth.session || 'Inconnue',
       totalAbsences,
+      totalInjustifiees,
+      totalJustifiees,
+      totalRetards,
       derniereAbsence,
+      absencesData,
       etatInscription: releve.etat_inscription === 'I' ? '✅ Inscrit' : '❓ Statut inconnu'
     };
+  };
+
+  // Données des absences
+  const fetchAbsencesData = async () => {
+    if (!user.proxyUrl) return;
+
+    setLoadingAbsences(true);
+    try {
+      // Il faut un MoodleSession - vous devrez l'ajouter aux données utilisateur
+      // ou le récupérer d'une autre manière
+      const moodleSession = user.moodleSession || ''; // À adapter selon votre système
+
+      const response = await fetch(`${user.proxyUrl}/api/proxy/absences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          moodleSession: moodleSession
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la récupération des absences');
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Erreur serveur');
+      }
+
+      // Mettre à jour les données utilisateur avec les absences
+      const updatedUser = {
+        ...user,
+        rawData: {
+          ...user.rawData,
+          absencesData: result.data
+        }
+      };
+
+      // Vous devrez passer cette fonction depuis le composant parent
+      // ou gérer l'état différemment
+      onRefresh(updatedUser);
+
+    } catch (error) {
+      console.error('Erreur récupération absences:', error);
+    } finally {
+      setLoadingAbsences(false);
+    }
   };
 
   // Données par défaut
@@ -258,20 +323,48 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               </div>
             </div>
 
-            {/* Alertes importantes */}
-            {enhancedData && enhancedData.totalAbsences > 0 && (
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      Attention aux absences
-                    </h3>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      Vous avez {enhancedData.totalAbsences} absence(s) enregistrée(s).
-                    </p>
+            {/* Alertes importantes - Absences */}
+            {enhancedData && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg cursor-pointer hover:shadow-md transition-all"
+                onClick={() => {
+                  if (!enhancedData.absencesData) {
+                    fetchAbsencesData();
+                  }
+                  setShowAbsencesDetail(true);
+                }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start">
+                    <UserCheck className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="text-sm font-medium text-blue-800 mb-1">
+                        Suivi des absences
+                      </h3>
+                      {enhancedData.absencesData ? (
+                        <div className="space-y-1">
+                          <p className="text-sm text-blue-700">
+                            {enhancedData.totalAbsences} absence(s) • {enhancedData.totalInjustifiees} injustifiée(s) • {enhancedData.totalRetards} retard(s)
+                          </p>
+                          {enhancedData.derniereAbsence && (
+                            <p className="text-xs text-blue-600">
+                              Dernière absence: {enhancedData.derniereAbsence}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-blue-700">
+                          Cliquez pour charger vos données d'absences
+                        </p>
+                      )}
+                    </div>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-blue-600" />
                 </div>
+                {loadingAbsences && (
+                  <div className="mt-3 flex items-center text-xs text-blue-600">
+                    <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                    Chargement des données...
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -298,6 +391,146 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
             </div>
           </div>
         </div>
+
+        {/* Modal détail des absences */}
+        {showAbsencesDetail && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center px-4 z-50">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold flex items-center">
+                      <UserCheck className="w-6 h-6 mr-2" />
+                      Détail des absences
+                    </h3>
+                    {enhancedData?.absencesData?.nomEtudiant && (
+                      <p className="text-blue-100 mt-1">{enhancedData.absencesData.nomEtudiant}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowAbsencesDetail(false)}
+                    className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                {enhancedData?.absencesData ? (
+                  <div className="space-y-6">
+                    {/* Statistiques par semestre */}
+                    {enhancedData.absencesData.statistiquesParSemestre?.length > 0 && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-4">Statistiques par semestre</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {enhancedData.absencesData.statistiquesParSemestre.map((sem, index) => (
+                            <div key={index} className="bg-gray-50 rounded-lg p-4">
+                              <h5 className="font-medium text-gray-900 mb-3">{sem.semestre}</h5>
+                              <div className="space-y-2">
+                                {Object.entries(sem.statistiques).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">{key}:</span>
+                                    <span className="font-medium">{value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Totaux */}
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="text-lg font-semibold mb-4 text-blue-900">Totaux</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">{enhancedData.totalAbsences}</div>
+                          <div className="text-sm text-blue-700">Total absences</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">{enhancedData.totalInjustifiees}</div>
+                          <div className="text-sm text-red-700">Injustifiées</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{enhancedData.totalJustifiees}</div>
+                          <div className="text-sm text-green-700">Justifiées</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">{enhancedData.totalRetards}</div>
+                          <div className="text-sm text-orange-700">Retards</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Détail des absences */}
+                    {enhancedData.absencesData.detailAbsences?.length > 0 && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-4">Détail des absences</h4>
+                        <div className="bg-white border rounded-lg overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="text-left p-3 font-medium text-gray-900">Date</th>
+                                  <th className="text-left p-3 font-medium text-gray-900">Cours</th>
+                                  <th className="text-left p-3 font-medium text-gray-900">Enseignant</th>
+                                  <th className="text-left p-3 font-medium text-gray-900">Type</th>
+                                  <th className="text-left p-3 font-medium text-gray-900">Statut</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {enhancedData.absencesData.detailAbsences.map((absence, index) => (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="p-3">{absence.date}</td>
+                                    <td className="p-3 font-medium">{absence.cours}</td>
+                                    <td className="p-3">{absence.enseignant}</td>
+                                    <td className="p-3">{absence.type}</td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${absence.statut === 'injustifiée' ? 'bg-red-100 text-red-800' :
+                                          absence.statut === 'justifiée' ? 'bg-green-100 text-green-800' :
+                                            absence.statut === 'retard' ? 'bg-orange-100 text-orange-800' :
+                                              'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {absence.statut}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="mb-4">
+                      {loadingAbsences ? (
+                        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+                      ) : (
+                        <AlertCircle className="w-8 h-8 text-gray-400 mx-auto" />
+                      )}
+                    </div>
+                    <p className="text-gray-600 mb-4">
+                      {loadingAbsences ? 'Chargement des données d\'absences...' : 'Aucune donnée d\'absence disponible'}
+                    </p>
+                    {!loadingAbsences && (
+                      <button
+                        onClick={fetchAbsencesData}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Réessayer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Intégration directe de l'emploi du temps */}
         <div className="bg-card rounded-xl border overflow-hidden">
