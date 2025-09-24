@@ -559,7 +559,7 @@ const Login = ({ onLoginSuccess }) => {
 
                 {/* Instructions récupération tokens */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <a href="https://scodocetudiant.iut-blagnac.fr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline"><strong>Accéder au tuto SETUP du dashboard</strong></a>
+                    <a href="https://html-preview.github.io/?url=https://github.com/MickaelFlores/menu-s3-webetud/blob/main/index.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline"><strong>Accéder au tuto SETUP du dashboard</strong></a>
                     <ul className="text-xs text-gray-600 space-y-1">
                         <li>• Installer une extension</li>
                         <li>• Se connecter a SCODOC une UNIQUE fois</li>
