@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { cookieUtils } from '../utils/cookies';
-import StudentInfos from '../services/StudentInfos';
+import StudentInfos from '../hooks/StudentInfos';
+import SettingsPanel from '../components/SettingsPanel';
 import {
   GraduationCap,
   TrendingUp,
@@ -25,6 +26,8 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [showAbsencesDetail, setShowAbsencesDetail] = useState(false);
   const [loadingAbsences, setLoadingAbsences] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false); // Nouveau state
+
 
 
 
@@ -144,7 +147,11 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary">
                 <Bell className="w-5 h-5" />
               </button>
-              <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary">
+              {/* Bouton Settings modifié */}
+              <button
+                onClick={() => setShowSettingsPanel(true)}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
+              >
                 <Settings className="w-5 h-5" />
               </button>
               <button
@@ -267,6 +274,13 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
               </div>
               <h3 className="font-semibold">Moyenne Générale</h3>
             </div>
+
+            {/* Panneau de configuration - Nouveau */}
+            <SettingsPanel
+              isOpen={showSettingsPanel}
+              onClose={() => setShowSettingsPanel(false)}
+              cookieUtils={cookieUtils}
+            />
 
             {/* Classement */}
             <div className="bg-white p-4 rounded-xl border">

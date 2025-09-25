@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import { authAPI } from './services/api';
 import { cookieUtils } from './utils/cookies';
 import { Loader, AlertTriangle } from 'lucide-react';
-import StudentInfos from './services/StudentInfos';
+import StudentInfos from './hooks/StudentInfos';
 
 // Styles CSS personnalisés pour améliorer l'apparence
 import './App.css';

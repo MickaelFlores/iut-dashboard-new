@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader, AlertTriangle, Shield, Server, RefreshCw, Info, X } from 'lucide-react';
 import { cookieUtils } from '../utils/cookies';
-import StudentInfos from '../services/StudentInfos';
+import StudentInfos from '../hooks/StudentInfos';
 
 const Login = ({ onLoginSuccess }) => {
     const [loading, setLoading] = useState(false);
