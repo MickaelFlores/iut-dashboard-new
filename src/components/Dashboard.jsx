@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { cookieUtils } from '../utils/cookies';
+import StudentInfos from '../services/StudentInfos';
 import {
   GraduationCap,
   TrendingUp,
@@ -37,82 +38,44 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
 
 
 
+  const enhancedData = StudentInfos.extractAbsencesData(user?.rawData);
 
-  // CORRECTION COMPLÈTE de la fonction extractEnhancedData :
-  // 1. REMPLACER extractEnhancedData par cette version simple :
-
-  const extractEnhancedData = (rawData) => {
-
-    if (!rawData) return null;
-
-    const absencesData = rawData.absencesData;
-    const totaux = absencesData?.totaux || {};
-
-    return {
-      sessionId: rawData.auth?.session || 'Inconnue',
-      totalAbsences: totaux.totalAbsences || 0,
-      totalInjustifiees: totaux.totalInjustifiees || 0,
-      totalJustifiees: totaux.totalJustifiees || 0,
-      totalRetards: totaux.totalRetards || 0,
-      derniereAbsence: null, // Simplifié pour l'instant
-      absencesData,
-      etatInscription: 'Inscrit'
-    };
-  };
 
 
   const fetchAbsencesData = async () => {
     setLoadingAbsences(true);
 
     try {
-      const moodleSession = cookieUtils.get('MoodleSession');
+      const moodleSession = cookieUtils.get('MoodleSession') || user?.moodleSession;
 
+      if (!moodleSession) {
+        throw new Error('Session Moodle requise pour récupérer les absences');
+      }
 
-      const response = await fetch('https://scodoc-proxy-production.up.railway.app/api/proxy/absences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moodleSession: moodleSession,
-          dpt: 'INFO',
-          cid: '874'
-        })
+      const updatedUser = await StudentInfos.updateAbsencesData({
+        ...user,
+        moodleSession
       });
 
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        const updatedUser = {
-          ...user,
-          rawData: {
-            ...user.rawData,
-            absencesData: result.data
-          }
-        };
-
-        onRefresh(updatedUser);
-      }
+      onRefresh(updatedUser);
 
     } catch (error) {
-      console.log('ERREUR COMPLETE:', error);
+      console.error('❌ Erreur récupération absences:', error);
+      console.error('Erreur lors du chargement des absences: ' + error.message);
     } finally {
-      console.log('Loading terminé');
       setLoadingAbsences(false);
     }
   };
 
+
   // 🚀 AUTO-FETCH DES ABSENCES AU LANCEMENT
   useEffect(() => {
-    // Vérifier si on a un utilisateur et qu' n'a pas déjà les données d'absences
+    // Vérifier si on a un utilisateur et qu'on n'a pas déjà les données d'absences
     if (user && !user.rawData?.absencesData) {
       console.log('🔄 Auto-fetch des données d\'absences au lancement...');
       fetchAbsencesData();
     }
-  }, [user]); // Se déclenche quand 'user' change (au montage principalement)
+  }, [user]);
 
   // Données par défaut
   const defaultData = {
@@ -128,8 +91,6 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   };
 
   const data = { ...defaultData, ...user };
-  const enhancedData = extractEnhancedData(user?.rawData);
-
   // Couleur basée sur la moyenne
   const getMoyenneColor = (moyenne) => {
     const moyenneNum = parseFloat(moyenne);

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader, AlertTriangle, Shield, Server, RefreshCw, Info, X } from 'lucide-react';
 import { cookieUtils } from '../utils/cookies';
+import StudentInfos from '../services/StudentInfos';
 
 const Login = ({ onLoginSuccess }) => {
     const [loading, setLoading] = useState(false);
@@ -36,64 +37,16 @@ const Login = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            console.log('🔄 Vérification du statut de session...');
+            console.log('🔄 Tentative de connexion automatique...');
 
-            // Vérifier d'abord si la session est encore active
-            const sessionCheckResponse = await fetch(`${proxyUrl}/api/session/check`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    phpsessid: tokens.phpsessid.trim()
-                })
-            });
+            const userData = await StudentInfos.attemptAutoLogin();
 
-            if (!sessionCheckResponse.ok) {
-                throw new Error('Erreur lors de la vérification de session');
+            if (userData) {
+                console.log('✅ Connexion automatique réussie');
+                onLoginSuccess(userData);
+            } else {
+                throw new Error('Session expirée ou invalide');
             }
-
-            const sessionStatus = await sessionCheckResponse.json();
-
-            if (!sessionStatus.success) {
-                throw new Error(sessionStatus.error || 'Erreur de vérification de session');
-            }
-
-            // Si la session est expirée, nettoyer immédiatement
-            if (!sessionStatus.sessionActive) {
-                console.log('⏰ Session expirée détectée, nettoyage des cookies');
-                cookieUtils.clearTokens();
-                setTokens({ phpsessid: '', csrftoken: '' });
-                setError('Votre session a expiré. Veuillez vous reconnecter.');
-                setAutoLoginAttempted(true);
-                setAutoConnecting(false);
-                return;
-            }
-
-            console.log('✅ Session active, tentative de connexion automatique...');
-
-            // Session active, procéder avec la connexion automatique
-            const studentData = await fetchStudentData(
-                tokens.phpsessid.trim(),
-                tokens.csrftoken.trim()
-            );
-
-            // Sauvegarder les tokens qui fonctionnent
-            cookieUtils.saveTokens(tokens.phpsessid.trim(), tokens.csrftoken.trim());
-
-            console.log('✅ Connexion automatique réussie');
-
-            onLoginSuccess({
-                ...studentData,
-                authenticated: true,
-                authMethod: 'Auto Login',
-                loginTime: new Date().toISOString(),
-                phpsessid: tokens.phpsessid.trim(),
-                csrftoken: tokens.csrftoken.trim(),
-                moodleSession: tokens.moodleSession, // Ajoutez cette ligne
-
-                proxyUrl
-            });
 
         } catch (error) {
             console.warn('⚠️ Connexion automatique échouée:', error.message);
@@ -107,7 +60,7 @@ const Login = ({ onLoginSuccess }) => {
                 error.message.includes('doAuth')) {
                 console.log('🧹 Nettoyage des cookies invalides');
                 cookieUtils.clearTokens();
-                setTokens({ phpsessid: '', csrftoken: '' });
+                setTokens({ phpsessid: '', csrftoken: '', moodleSession: '' });
             }
         } finally {
             setAutoConnecting(false);
@@ -120,26 +73,21 @@ const Login = ({ onLoginSuccess }) => {
         const maxRetries = 3;
 
         try {
-            const testUrl = `${proxyUrl}/api/test`;
-            const response = await fetch(testUrl, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-                signal: AbortSignal.timeout(15000) // 15s pour le cold start
-            });
+            const isOnline = await StudentInfos.checkProxyStatus();
 
-            if (response.ok) {
+            if (isOnline) {
                 setProxyStatus('online');
-                setError(''); // Effacer les erreurs précédentes
+                setError('');
                 setRetryCount(0);
                 console.log('✅ Proxy disponible');
             } else {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error('Proxy indisponible');
             }
         } catch (error) {
             console.warn(`⚠️ Tentative ${currentRetryCount + 1}/${maxRetries + 1} échouée:`, error.message);
 
             if (currentRetryCount < maxRetries) {
-                const delay = (currentRetryCount + 1) * 2000; // 2s, 4s, 6s
+                const delay = (currentRetryCount + 1) * 2000;
                 console.log(`🔄 Nouvelle tentative dans ${delay / 1000}s...`);
 
                 setProxyStatus('retrying');
@@ -156,8 +104,9 @@ const Login = ({ onLoginSuccess }) => {
                 console.error('❌ Proxy définitivement indisponible après', maxRetries + 1, 'tentatives');
             }
         }
-    }, [proxyUrl]);
+    }, []);
 
+    
     // Vérification automatique du proxy au chargement
     useEffect(() => {
         const handlePageLoaded = () => {
@@ -188,76 +137,6 @@ const Login = ({ onLoginSuccess }) => {
         }
     }, [proxyStatus, tokens, autoLoginAttempted, loading, autoConnecting, attemptAutoLogin]);
 
-    const parseStudentData = (data) => {
-        const etudiant = data?.relevé?.etudiant || {};
-        const semestre = data?.relevé?.semestre || {};
-        const groupes = semestre.groupes || [];
-
-        let groupe_td = "Non trouvé";
-        let groupe_tp = "Non trouvé";
-
-        for (const groupe of groupes) {
-            const group_name = groupe.group_name || '';
-            const partition_name = groupe.partition?.partition_name || '';
-
-            if (group_name.length === 2 && /^\d/.test(group_name)) {
-                groupe_td = group_name[0];
-                groupe_tp = group_name[1];
-                break;
-            } else if (partition_name === "TD") {
-                groupe_td = group_name;
-            } else if (partition_name === "TP") {
-                groupe_tp = group_name;
-            }
-        }
-
-        return {
-            nom: etudiant.nom || 'Non trouvé',
-            prenom: etudiant.prenom || 'Non trouvé',
-            groupe_td,
-            groupe_tp,
-            moyenne_generale: semestre.notes?.value || 'Non trouvé',
-            classement: semestre.rang?.value || 'Non trouvé',
-            total_etudiants: semestre.rang?.total || 'Non trouvé',
-            semestre: semestre.numero || 'Non trouvé',
-            annee: semestre.annee_universitaire || 'Non trouvé',
-            rawData: data
-        };
-    };
-
-    const fetchStudentData = async (phpsessidValue, csrftokenValue) => {
-        try {
-            console.log('🔄 Requête via proxy...');
-
-            const response = await fetch(`${proxyUrl}/api/proxy/scodoc`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    phpsessid: phpsessidValue,
-                    csrftoken: csrftokenValue
-                }),
-                signal: AbortSignal.timeout(30000)
-            });
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Erreur du serveur proxy');
-            }
-
-            console.log('✅ Données reçues via proxy');
-            return parseStudentData(result.data);
-
-        } catch (error) {
-            console.error('❌ Erreur requête proxy:', error);
-            throw new Error(`Erreur proxy: ${error.message}`);
-        }
-    };
-
 
 
     const handleManualLogin = async () => {
@@ -275,7 +154,7 @@ const Login = ({ onLoginSuccess }) => {
         setError('');
 
         try {
-            const studentData = await fetchStudentData(
+            const studentData = await StudentInfos.fetchStudentData(
                 tokens.phpsessid.trim(),
                 tokens.csrftoken.trim()
             );
@@ -292,7 +171,8 @@ const Login = ({ onLoginSuccess }) => {
                 loginTime: new Date().toISOString(),
                 phpsessid: tokens.phpsessid.trim(),
                 csrftoken: tokens.csrftoken.trim(),
-                proxyUrl
+                moodleSession: tokens.moodleSession || '',
+                proxyUrl: StudentInfos.proxyUrl
             });
 
         } catch (error) {

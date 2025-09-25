@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import { authAPI } from './services/api';
 import { cookieUtils } from './utils/cookies';
 import { Loader, AlertTriangle } from 'lucide-react';
+import StudentInfos from './services/StudentInfos';
 
 // Styles CSS personnalisés pour améliorer l'apparence
 import './App.css';
@@ -30,7 +31,7 @@ function App() {
         try {
             setError('');
 
-            // D'abord vérifier s'il y a une session serveur active (si vous utilisez authAPI)
+            // Vérifier s'il y a une session serveur active
             try {
                 const response = await authAPI.getStatus();
                 const isAuth = response.data.authenticated;
@@ -48,16 +49,17 @@ function App() {
                 console.log('ℹ️ Pas de session serveur active');
             }
 
-            // Sinon, essayer de récupérer les tokens des cookies pour une connexion proxy
-            const savedTokens = cookieUtils.getTokens();
-            if (savedTokens.phpsessid) {
-                console.log('ℹ️ Tokens trouvés dans les cookies, tentative de reconnexion...');
-                // La reconnexion sera gérée par le composant Login
-            } else {
-                console.log('ℹ️ Aucune session ou tokens sauvegardés');
-            }
+            // Tentative de connexion automatique avec les tokens sauvegardés
+            const userData = await StudentInfos.attemptAutoLogin();
 
-            setAuthenticated(false);
+            if (userData) {
+                console.log('✅ Connexion automatique réussie');
+                setUser(userData);
+                setAuthenticated(true);
+            } else {
+                console.log('ℹ️ Aucune session ou tokens valides');
+                setAuthenticated(false);
+            }
 
         } catch (error) {
             console.error('❌ Erreur vérification auth:', error);
@@ -82,41 +84,13 @@ function App() {
             }
 
             if (user?.authMethod?.includes('Login') && user?.phpsessid) {
-                // Relancer la requête proxy avec les tokens existants
-                const proxyUrl = user?.proxyUrl || 'https://scodoc-proxy-production.up.railway.app';
-
-                const response = await fetch(`${proxyUrl}/api/proxy/scodoc`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        phpsessid: user.phpsessid,
-                        csrftoken: user.csrftoken || ''
-                    })
+                // Utiliser le service pour rafraîchir les données
+                const updatedUser = await StudentInfos.refreshUserData(user, {
+                    preserveAbsences: true
                 });
 
-                const result = await response.json();
-                if (result.success) {
-                    const updatedUserData = parseStudentData(result.data);
-                    setUser({
-                        ...updatedUserData,
-                        authenticated: true,
-                        authMethod: user.authMethod,
-                        loginTime: new Date().toISOString(),
-                        phpsessid: user.phpsessid,
-                        csrftoken: user.csrftoken,
-                        proxyUrl: user.proxyUrl,
-                        // ✅ PRÉSERVER les données d'absences existantes
-                        rawData: {
-                            ...updatedUserData.rawData,
-                            absencesData: user.rawData?.absencesData // Conserver absencesData
-                        }
-                    });
-                    console.log('✅ Données actualisées avec préservation des absences');
-                } else {
-                    throw new Error(result.error || 'Erreur lors de l\'actualisation');
-                }
+                setUser(updatedUser);
+                console.log('✅ Données actualisées avec préservation des absences');
             } else {
                 // Pour d'autres méthodes d'auth, réutiliser checkAuthStatus
                 await checkAuthStatus();
@@ -130,57 +104,6 @@ function App() {
                 handleLogout();
             }
         }
-    };
-
-    // Fonction pour parser les données (même que dans Login)
-    const parseStudentData = (data) => {
-        const etudiant = data?.relevé?.etudiant || {};
-        const nom = etudiant.nom || 'Non trouvé';
-        const prenom = etudiant.prenom || 'Non trouvé';
-
-        const semestre = data?.relevé?.semestre || {};
-        const groupes = semestre.groupes || [];
-
-        let groupe_td = "Non trouvé";
-        let groupe_tp = "Non trouvé";
-
-        for (const groupe of groupes) {
-            const group_name = groupe.group_name || '';
-            const partition_name = groupe.partition?.partition_name || '';
-
-            if (group_name.length === 2 && /^\d/.test(group_name)) {
-                groupe_td = group_name[0];
-                groupe_tp = group_name[1];
-                break;
-            } else if (partition_name === "TD") {
-                groupe_td = group_name;
-            } else if (partition_name === "TP") {
-                groupe_tp = group_name;
-            }
-        }
-
-        const notes = semestre.notes || {};
-        const moyenne_generale = notes.value || 'Non trouvé';
-
-        const rang_info = semestre.rang || {};
-        const classement = rang_info.value || 'Non trouvé';
-        const total_etudiants = rang_info.total || 'Non trouvé';
-
-        const annee_scolaire = semestre.annee_universitaire || 'Non trouvé';
-        const semestre_num = semestre.numero || 'Non trouvé';
-
-        return {
-            nom,
-            prenom,
-            groupe_td,
-            groupe_tp,
-            moyenne_generale,
-            classement,
-            total_etudiants,
-            semestre: semestre_num,
-            annee: annee_scolaire,
-            rawData: data
-        };
     };
 
     const handleLogout = () => {
