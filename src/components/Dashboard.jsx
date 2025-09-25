@@ -151,7 +151,7 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header moderne */}
-      <header className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="w-full border-b bg-white bg-opacity-90 backdrop-blur-md sticky top-0 z-10">
         <div className="container max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center h-16">
             {/* Logo et titre */}
