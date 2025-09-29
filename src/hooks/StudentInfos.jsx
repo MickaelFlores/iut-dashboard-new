@@ -1,4 +1,4 @@
-// services/StudentInfos.jsx
+// services/StudentInfos.jsx - Version améliorée avec parsing complet des notes
 import { cookieUtils } from '../utils/cookies';
 
 export class StudentInfos {
@@ -24,11 +24,7 @@ export class StudentInfos {
       const group_name = groupe.group_name || '';
       const partition_name = groupe.partition?.partition_name || '';
 
-      if (group_name.length === 2 && /^\d/.test(group_name)) {
-        groupe_td = group_name[0];
-        groupe_tp = group_name[1];
-        break;
-      } else if (partition_name === "TD") {
+      if (partition_name === "TD") {
         groupe_td = group_name;
       } else if (partition_name === "TP") {
         groupe_tp = group_name;
@@ -50,9 +46,98 @@ export class StudentInfos {
   }
 
   /**
+   * Parse les données détaillées des notes depuis les données brutes ScoDoc
+   * @param {Object} rawData - Données brutes de l'API ScoDoc
+   * @returns {Object} Données structurées des notes par compétences
+   */
+  static parseDetailedNotes(rawData) {
+    if (!rawData?.relevé) return null;
+
+    const releve = rawData.relevé;
+    const ues = releve.ues || {};
+    const ressources = releve.ressources || {};
+    const saes = releve.saes || {};
+
+    // Parser les compétences/UEs
+    const competences = Object.entries(ues).map(([codeUE, ue]) => {
+      // Parser les ressources de cette UE
+      const ressourcesUE = Object.entries(ue.ressources || {}).map(([codeRes, resData]) => {
+        const ressourceDetail = ressources[codeRes] || {};
+        return {
+          code: codeRes,
+          nom: ressourceDetail.titre || 'Non trouvé',
+          moyenne: resData.moyenne || '~',
+          coef: resData.coef || 0,
+          evaluations: ressourceDetail.evaluations || []
+        };
+      });
+
+      // Parser les SAEs de cette UE
+      const saesUE = Object.entries(ue.saes || {}).map(([codeSae, saeData]) => {
+        const saeDetail = saes[codeSae] || {};
+        return {
+          code: codeSae,
+          nom: saeDetail.titre || 'Non trouvé',
+          moyenne: saeData.moyenne || '~',
+          coef: saeData.coef || 0,
+          evaluations: saeDetail.evaluations || []
+        };
+      });
+
+      return {
+        id: codeUE,
+        nom: ue.titre || 'Non trouvé',
+        moyenne: ue.moyenne?.value || '~',
+        rang: `${ue.moyenne?.rang || '~'} / ${ue.moyenne?.total || '0'}`,
+        ects: `${ue.ECTS?.acquis || 0} / ${ue.ECTS?.total || 5}`,
+        bonus: ue.bonus || '00.00',
+        malus: ue.malus || '00.00',
+        color: ue.color || '#gray',
+        ressources: ressourcesUE,
+        saes: saesUE
+      };
+    });
+
+    // Parser toutes les ressources individuellement
+    const toutesRessources = Object.entries(ressources).map(([code, ressource]) => {
+      return {
+        code,
+        nom: ressource.titre || 'Non trouvé',
+        moyenne: ressource.moyenne?.value || '~',
+        evaluations: ressource.evaluations || [],
+        url: ressource.url || ''
+      };
+    });
+
+    // Parser toutes les SAEs individuellement  
+    const toutesSaes = Object.entries(saes).map(([code, sae]) => {
+      return {
+        code,
+        nom: sae.titre || 'Non trouvé',
+        moyenne: sae.moyenne?.value || '~',
+        evaluations: sae.evaluations || [],
+        url: sae.url || ''
+      };
+    });
+
+    return {
+      competences,
+      ressources: toutesRessources,
+      saes: toutesSaes,
+      semestre: {
+        numero: releve.semestre?.numero || '~',
+        annee: releve.semestre?.annee_universitaire || '~',
+        moyenne_generale: releve.semestre?.notes?.value || '~',
+        rang_general: `${releve.semestre?.rang?.value || '~'} / ${releve.semestre?.rang?.total || '0'}`,
+        min_promo: releve.semestre?.notes?.min || '~',
+        max_promo: releve.semestre?.notes?.max || '~',
+        moy_promo: releve.semestre?.notes?.moy || '~'
+      }
+    };
+  }
+
+  /**
    * Extrait les données d'absences formatées
-   * @param {Object} rawData - Données brutes contenant les informations d'absences
-   * @returns {Object|null} Données d'absences formatées
    */
   static extractAbsencesData(rawData) {
     if (!rawData) return null;
@@ -74,9 +159,6 @@ export class StudentInfos {
 
   /**
    * Récupère les données ScoDoc via le proxy
-   * @param {string} phpsessid - Session ID PHP
-   * @param {string} csrftoken - Token CSRF (optionnel)
-   * @returns {Promise<Object>} Données de l'étudiant formatées
    */
   static async fetchStudentData(phpsessid, csrftoken = '') {
     try {
@@ -113,10 +195,6 @@ export class StudentInfos {
 
   /**
    * Récupère les données d'absences via le proxy
-   * @param {string} moodleSession - Session Moodle
-   * @param {string} dpt - Département (par défaut 'INFO')
-   * @param {string} cid - Code de classe (par défaut '874')
-   * @returns {Promise<Object>} Données d'absences
    */
   static async fetchAbsencesData(moodleSession, dpt = 'INFO', cid = '874') {
     try {
@@ -154,8 +232,6 @@ export class StudentInfos {
 
   /**
    * Vérifie le statut de session ScoDoc
-   * @param {string} phpsessid - Session ID PHP
-   * @returns {Promise<Object>} Statut de la session
    */
   static async checkSessionStatus(phpsessid) {
     try {
@@ -193,7 +269,6 @@ export class StudentInfos {
 
   /**
    * Vérifie le statut du proxy
-   * @returns {Promise<boolean>} True si le proxy est disponible
    */
   static async checkProxyStatus() {
     try {
@@ -212,7 +287,6 @@ export class StudentInfos {
 
   /**
    * Connexion automatique avec les tokens sauvegardés
-   * @returns {Promise<Object|null>} Données utilisateur ou null si échec
    */
   static async attemptAutoLogin() {
     try {
@@ -256,7 +330,6 @@ export class StudentInfos {
     } catch (error) {
       console.warn('⚠️ Connexion automatique échouée:', error.message);
 
-      // Si erreur de session/token, nettoyer les cookies
       if (error.message.includes('session') ||
           error.message.includes('token') ||
           error.message.includes('expiré')) {
@@ -270,9 +343,6 @@ export class StudentInfos {
 
   /**
    * Rafraîchit les données utilisateur existantes
-   * @param {Object} currentUser - Utilisateur actuel
-   * @param {Object} options - Options de rafraîchissement
-   * @returns {Promise<Object>} Données utilisateur mises à jour
    */
   static async refreshUserData(currentUser, options = {}) {
     try {
@@ -321,8 +391,6 @@ export class StudentInfos {
 
   /**
    * Met à jour les données d'absences d'un utilisateur
-   * @param {Object} currentUser - Utilisateur actuel
-   * @returns {Promise<Object>} Utilisateur avec données d'absences mises à jour
    */
   static async updateAbsencesData(currentUser) {
     try {

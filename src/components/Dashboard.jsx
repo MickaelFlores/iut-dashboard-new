@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { cookieUtils } from '../utils/cookies';
 import StudentInfos from '../hooks/StudentInfos';
 import SettingsPanel from '../components/SettingsPanel';
+import NotesDetailModal from '../components/NotesDetailModal';
 import {
   GraduationCap,
   TrendingUp,
@@ -26,7 +27,9 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [showAbsencesDetail, setShowAbsencesDetail] = useState(false);
   const [loadingAbsences, setLoadingAbsences] = useState(false);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false); // Nouveau state
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+
 
 
 
@@ -267,12 +270,16 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
           {/* Stats rapides */}
           <div className="space-y-4">
             {/* Moyenne */}
-            <div className={`p-4 rounded-xl border-2 ${getMoyenneColor(data.moyenne_generale)}`}>
+            <div
+              className={`p-4 rounded-xl border-2 cursor-pointer hover:shadow-lg transition-all ${getMoyenneColor(data.moyenne_generale)}`}
+              onClick={() => setShowNotesModal(true)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <TrendingUp className="w-5 h-5" />
                 <span className="text-2xl font-bold">{data.moyenne_generale}</span>
               </div>
               <h3 className="font-semibold">Moyenne Générale</h3>
+              <p className="text-xs mt-1 opacity-75">Cliquez pour voir le détail</p>
             </div>
 
             {/* Panneau de configuration - Nouveau */}
@@ -451,6 +458,13 @@ const ModernStudentDashboard = ({ user, onLogout, onRefresh }) => {
                 background: 'white'
               }
               }
+            />
+
+            {/* Modal détail des notes */}
+            <NotesDetailModal
+              isOpen={showNotesModal}
+              onClose={() => setShowNotesModal(false)}
+              user={user}
             />
 
             {/* Overlay de chargement */}
