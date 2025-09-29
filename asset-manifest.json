@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/MickaelFlores/iut-dashboard-new/static/css/main.11498821.css",
+    "main.js": "/MickaelFlores/iut-dashboard-new/static/js/main.cbe62345.js",
+    "index.html": "/MickaelFlores/iut-dashboard-new/index.html",
+    "main.11498821.css.map": "/MickaelFlores/iut-dashboard-new/static/css/main.11498821.css.map",
+    "main.cbe62345.js.map": "/MickaelFlores/iut-dashboard-new/static/js/main.cbe62345.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.11498821.css",
+    "static/js/main.cbe62345.js"
+  ]
+}
