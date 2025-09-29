@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.css": "./Dashboard/static/css/main.11498821.css",
-    "main.js": "./Dashboard/static/js/main.cbe62345.js",
-    "index.html": "./Dashboard/index.html",
-    "main.11498821.css.map": "./Dashboard/static/css/main.11498821.css.map",
-    "main.cbe62345.js.map": "./Dashboard/static/js/main.cbe62345.js.map"
+    "main.css": "/MickaelFlores/dashboard/static/css/main.11498821.css",
+    "main.js": "/MickaelFlores/dashboard/static/js/main.cbe62345.js",
+    "index.html": "/MickaelFlores/dashboard/index.html",
+    "main.11498821.css.map": "/MickaelFlores/dashboard/static/css/main.11498821.css.map",
+    "main.cbe62345.js.map": "/MickaelFlores/dashboard/static/js/main.cbe62345.js.map"
   },
   "entrypoints": [
     "static/css/main.11498821.css",
